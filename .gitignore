@@ -31,3 +31,15 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets ###
+.env
+.env.*
+!.env.example
+application-local.properties
+src/main/resources/application-local.properties
+
+### Graphify ###
+graphify-out/
+.graphify_*
+
