@@ -2,6 +2,20 @@
 
 Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được xây dựng trên nền tảng Java 21 và Spring Boot.
 
+## Tiến độ khối nghiệp vụ (e_learning.md)
+
+### 1. Khối Nghiệp vụ Người dùng & Phân quyền (Authentication & Authorization) - Đã hoàn thành 100%
+- Đăng ký tài khoản (Register): API POST /api/auth/register
+- Đăng nhập (Login): API POST /api/auth/login
+- Đăng xuất (Logout): API POST /api/auth/logout
+- Làm mới Token (Refresh Token): API POST /api/auth/refresh
+- Đổi mật khẩu (Change Password): API POST /api/auth/change-password
+- Quên mật khẩu (Forgot Password): API POST /api/auth/forgot-password
+- Đặt lại mật khẩu (Reset Password): API POST /api/auth/reset-password
+- Phân quyền người dùng (RBAC): Mã hóa mật khẩu bằng BCrypt, phân quyền role STUDENT, INSTRUCTOR, ADMIN qua Spring Security và JWT.
+
+---
+
 ## Công nghệ sử dụng
 
 - Java 21+
@@ -24,14 +38,16 @@ Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được
 
 Tạo cơ sở dữ liệu MySQL:
 
+```sql
 CREATE DATABASE IF NOT EXISTS e_learning;
+```
 
 Thiết lập các biến môi trường cấu hình (khuyên dùng cho môi trường sản xuất):
 
-MYSQL_URL=jdbc:mysql://localhost:3306/e_learning?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-MYSQL_USER=root
-MYSQL_PASSWORD=<mật_khẩu_mysql>
-JWT_SECRET=<chuỗi_bí_mật_jwt_độ_dài_tối_thiểu_32_ký_tự>
+- MYSQL_URL=jdbc:mysql://localhost:3306/e_learning?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+- MYSQL_USER=root
+- MYSQL_PASSWORD=<mat_khau_mysql>
+- JWT_SECRET=<chuoi_bi_mat_jwt_do_dai_toi_thieu_32_ky_tu>
 
 Mặc định khi chạy môi trường phát triển local, các giá trị trên sẽ tự động rơi về thông số mặc định nếu biến môi trường chưa được thiết lập.
 
@@ -53,7 +69,7 @@ Dự án sử dụng Graphify để tạo đồ thị tri thức mã nguồn (Kn
    graphify .
 
 2. Truy vấn mối quan hệ giữa các thành phần:
-   graphify query "<câu hỏi kiến trúc>"
+   graphify query "<cau_hoi_kien_truc>"
 
 3. Cập nhật đồ thị sau khi thay đổi mã nguồn lớn:
    graphify --update

@@ -5,6 +5,7 @@ import com.example.learning_backend.course.dto.CourseCreateRequest;
 import com.example.learning_backend.course.dto.CourseResponse;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +33,7 @@ public class CourseController {
         return courseService.findById(id);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
     @PostMapping
     public CourseResponse create(@Valid @RequestBody CourseCreateRequest request) {
         return courseService.create(request);

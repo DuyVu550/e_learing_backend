@@ -6,10 +6,10 @@ Adhere strictly to **Ponytail** principles for all coding, refactoring, architec
 The best code is code never written. Lazy means efficient, not careless. Avoid over-engineering, bloat, boilerplate, and unnecessary dependencies.
 
 ## Graphify Navigation Rules (Prevent Unnecessary File Reading)
-To prevent opening, reading, or scanning redundant/unrelated files:
-1. **Graph-First Querying:** Always check if `graphify-out/graph.json` exists before asking or researching codebase questions. Run `/graphify query "<question>"` to query structural relationships first.
-2. **Targeted File Inspection:** Use graph paths (`/graphify path "<source>" "<target>"`) to identify the exact files involved in a change. Never read unrelated files or scan whole folders blindly.
-3. **Keep Graph Updated:** Run `graphify --update` after major code additions or refactoring to keep structural edges synchronized.
+Before asking or searching codebase questions, check if `graphify-out/graph.json` exists.
+- Query graph first: Use `/graphify query "<question>"` for architecture, component relationships, or flow questions.
+- Trace paths: Use `/graphify path "<node1>" "<node2>"` to find structural dependencies before modifying code.
+- Update graph: Run `graphify --update` (or `/graphify --update`) after structural code changes.
 
 ## The Decision Ladder
 Stop at the first rung that holds:

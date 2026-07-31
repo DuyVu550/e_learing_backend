@@ -2,11 +2,17 @@ package com.example.learning_backend.auth.service;
 
 import com.example.learning_backend.auth.dto.AuthResponse;
 import com.example.learning_backend.auth.dto.ChangePasswordRequest;
+import com.example.learning_backend.auth.dto.ForgotPasswordRequest;
+import com.example.learning_backend.auth.dto.ForgotPasswordResponse;
 import com.example.learning_backend.auth.dto.LoginRequest;
+import com.example.learning_backend.auth.dto.LogoutRequest;
 import com.example.learning_backend.auth.dto.RefreshTokenRequest;
 import com.example.learning_backend.auth.dto.RegisterRequest;
+import com.example.learning_backend.auth.dto.ResetPasswordRequest;
 import com.example.learning_backend.auth.dto.UserResponse;
+import com.example.learning_backend.auth.entity.PasswordResetToken;
 import com.example.learning_backend.auth.entity.RefreshToken;
+import com.example.learning_backend.auth.repository.PasswordResetTokenRepository;
 import com.example.learning_backend.auth.repository.RefreshTokenRepository;
 import com.example.learning_backend.auth.security.JwtTokenService;
 import com.example.learning_backend.user.entity.Role;
@@ -17,6 +23,7 @@ import com.example.learning_backend.user.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Set;
@@ -33,10 +40,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private static final String DEFAULT_ROLE = "STUDENT";
+    private static final int RESET_TOKEN_BYTES = 32;
+    private static final long RESET_TOKEN_TTL_MINUTES = 30;
+
+    private final SecureRandom secureRandom = new SecureRandom();
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
@@ -45,6 +57,7 @@ public class AuthService {
         UserRepository userRepository,
         RoleRepository roleRepository,
         RefreshTokenRepository refreshTokenRepository,
+        PasswordResetTokenRepository passwordResetTokenRepository,
         PasswordEncoder passwordEncoder,
         AuthenticationManager authenticationManager,
         JwtTokenService jwtTokenService
@@ -52,6 +65,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
@@ -104,6 +118,40 @@ public class AuthService {
         return issueTokenPair(user);
     }
 
+    public void logout(LogoutRequest request) {
+        String tokenHash = hashToken(request.refreshToken());
+        refreshTokenRepository.findByTokenHash(tokenHash)
+            .ifPresent(token -> token.setRevokedAt(LocalDateTime.now()));
+    }
+
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        userRepository.findByEmail(request.email())
+            .filter(user -> user.getStatus() == UserStatus.ACTIVE)
+            .ifPresent(user -> {
+                String resetToken = randomToken();
+                PasswordResetToken token = new PasswordResetToken();
+                token.setUser(user);
+                token.setTokenHash(hashToken(resetToken));
+                token.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_TTL_MINUTES));
+                passwordResetTokenRepository.save(token);
+                // ponytail: no mail dependency yet; wire resetToken delivery when SMTP config exists.
+            });
+        return new ForgotPasswordResponse("If the email exists, a password reset link will be sent.");
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(hashToken(request.resetToken()))
+            .orElseThrow(() -> new BadCredentialsException("Invalid reset token"));
+        if (!token.isActive()) {
+            throw new BadCredentialsException("Reset token expired or used");
+        }
+
+        User user = token.getUser();
+        assertActive(user);
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        token.setUsedAt(LocalDateTime.now());
+    }
+
     public void changePassword(String email, ChangePasswordRequest request) {
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new BadCredentialsException("Invalid user"));
@@ -152,6 +200,12 @@ public class AuthService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BadCredentialsException("User is not active");
         }
+    }
+
+    private String randomToken() {
+        byte[] bytes = new byte[RESET_TOKEN_BYTES];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private String hashToken(String token) {

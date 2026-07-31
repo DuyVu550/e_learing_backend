@@ -5,6 +5,7 @@ import com.example.learning_backend.assessment.dto.AssessmentCreateRequest;
 import com.example.learning_backend.assessment.dto.AssessmentResponse;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +33,7 @@ public class AssessmentController {
         return assessmentService.findById(id);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")
     @PostMapping("/courses/{courseId}/assessments")
     public AssessmentResponse create(
         @PathVariable Long courseId,

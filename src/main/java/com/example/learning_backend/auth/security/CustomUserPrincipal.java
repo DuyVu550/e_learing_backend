@@ -2,7 +2,6 @@ package com.example.learning_backend.auth.security;
 
 import com.example.learning_backend.user.entity.User;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.security.core.GrantedAuthority;
@@ -25,8 +24,8 @@ public class CustomUserPrincipal implements UserDetails {
         this.enabled = user.getStatus() != null && user.getStatus().name().equals("ACTIVE");
         this.accountNonLocked = user.getStatus() == null || !Set.of("LOCKED").contains(user.getStatus().name());
         this.authorities = user.getRoles().stream()
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode()))
-            .collect(Collectors.toUnmodifiableList());
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode()))
+                .collect(Collectors.toUnmodifiableList());
     }
 
     public Long getId() {

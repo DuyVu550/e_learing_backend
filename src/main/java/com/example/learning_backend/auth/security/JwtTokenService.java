@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -25,11 +24,10 @@ public class JwtTokenService {
     private final Duration refreshTtl;
 
     public JwtTokenService(
-        @Value("${app.jwt.secret}") String secret,
-        @Value("${app.jwt.issuer}") String issuer,
-        @Value("${app.jwt.access-ttl}") Duration accessTtl,
-        @Value("${app.jwt.refresh-ttl}") Duration refreshTtl
-    ) {
+            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.issuer}") String issuer,
+            @Value("${app.jwt.access-ttl}") Duration accessTtl,
+            @Value("${app.jwt.refresh-ttl}") Duration refreshTtl) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.issuer = issuer;
         this.accessTtl = accessTtl;
@@ -46,10 +44,10 @@ public class JwtTokenService {
 
     public Claims parseClaims(String token) {
         return Jwts.parser()
-            .verifyWith(secretKey)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public boolean isRefreshToken(String token) {
@@ -69,7 +67,7 @@ public class JwtTokenService {
         return parseClaims(token).getSubject();
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("")
     public Set<String> getRoles(String token) {
         Object roles = parseClaims(token).get("roles");
         if (roles instanceof List<?> list) {
@@ -89,16 +87,15 @@ public class JwtTokenService {
     private String buildToken(Long userId, String email, Set<String> roles, String tokenType, Duration ttl) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .issuer(issuer)
-            .subject(email)
-            .issuedAt(Date.from(now))
-            .expiration(Date.from(now.plus(ttl)))
-            .claims(Map.of(
-                "userId", userId,
-                "roles", roles,
-                "tokenType", tokenType
-            ))
-            .signWith(secretKey)
-            .compact();
+                .issuer(issuer)
+                .subject(email)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(ttl)))
+                .claims(Map.of(
+                        "userId", userId,
+                        "roles", roles,
+                        "tokenType", tokenType))
+                .signWith(secretKey)
+                .compact();
     }
 }
