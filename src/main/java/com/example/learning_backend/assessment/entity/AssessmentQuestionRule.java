@@ -3,7 +3,6 @@ package com.example.learning_backend.assessment.entity;
 import com.example.learning_backend.assessment.enums.QuestionDifficulty;
 import com.example.learning_backend.assessment.enums.QuestionType;
 import com.example.learning_backend.common.entity.BaseEntity;
-import com.example.learning_backend.course.entity.Course;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,37 +18,31 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "questions")
-public class Question extends BaseEntity {
+@Table(name = "assessment_question_rules")
+public class AssessmentQuestionRule extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    @JoinColumn(name = "assessment_id", nullable = false)
+    private Assessment assessment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id")
     private QuestionTopic topic;
 
-    @Column(name = "question_text", nullable = false, columnDefinition = "TEXT")
-    private String questionText;
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private QuestionType type;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(length = 30)
     private QuestionDifficulty difficulty;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "question_type", length = 30)
+    private QuestionType questionType;
+
+    @Column(name = "question_count", nullable = false)
+    private Integer questionCount;
 
     @Column(nullable = false, precision = 8, scale = 2)
     private BigDecimal points;
 
-    @Column(name = "expected_answer", columnDefinition = "TEXT")
-    private String expectedAnswer;
-
-    @Column(columnDefinition = "TEXT")
-    private String explanation;
+    @Column(nullable = false)
+    private Integer position;
 }
-
-
-
