@@ -1,89 +1,101 @@
 # E-Learning Backend
 
-Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được xây dựng trên nền tảng Java 21 và Spring Boot.
+Hệ thống backend quản lý học tập & luyện thi trực tuyến (E-Learning / Assessment Engine) được xây dựng trên nền tảng Java 21 và Spring Boot.
 
-## Tiến độ khối nghiệp vụ (e_learning.md)
+## 📌 Tiến độ khối nghiệp vụ (Chi tiết tại `e_learning.md`)
 
-### 1. Khối Nghiệp vụ Người dùng & Phân quyền (Authentication & Authorization) - Đã hoàn thành 100%
-- Đăng ký tài khoản (Register): API POST /api/auth/register
-- Đăng nhập (Login): API POST /api/auth/login
-- Đăng xuất (Logout): API POST /api/auth/logout
-- Làm mới Token (Refresh Token): API POST /api/auth/refresh
-- Đổi mật khẩu (Change Password): API POST /api/auth/change-password
-- Quên mật khẩu (Forgot Password): API POST /api/auth/forgot-password
-- Đặt lại mật khẩu (Reset Password): API POST /api/auth/reset-password
-- Phân quyền người dùng (RBAC): Mã hóa mật khẩu bằng BCrypt, phân quyền role STUDENT, INSTRUCTOR, ADMIN qua Spring Security và JWT.
+### 1. Khối Nghiệp vụ Người dùng & Phân quyền (Auth & Security) - 100% ✅
+- **Đăng ký / Đăng nhập / Đăng xuất:** Standard Email + Password (BCrypt).
+- **JWT Authentication:** Access Token + Refresh Token flow.
+- **Quên / Đặt lại mật khẩu:** Token-based reset qua Email/OTP framework.
+- **Phân quyền người dùng (RBAC):** Phân quyền `STUDENT`, `INSTRUCTOR`, `ADMIN` bảo mật bằng Spring Security.
+
+### 2. Khối Nghiệp vụ Quản lý Khóa học & Nội dung (Course & Content) - 100% ✅
+- **Cấu trúc phân cấp:** Khóa học (`Course`) $\rightarrow$ Chương (`CourseSection`) $\rightarrow$ Bài học (`Lesson`).
+- **Đa dạng nội dung:** Bài học hỗ trợ Video (`videoUrl`), Document (`documentUrl` Text/PDF/Markdown) và Loại bài học (`LessonContentType`).
+- **Theo dõi tiến độ học tập (Progress Tracking):**
+  - Lưu vị trí xem dở (`lastPositionSeconds`).
+  - Đánh dấu hoàn thành từng bài học (`LessonProgressStatus.COMPLETED`).
+  - Tự động tính toán % tiến độ khóa học theo thời gian thực và cập nhật trạng thái `COMPLETED` cho khóa học khi đạt 100%.
+
+### 3. Khối Nghiệp vụ Ngân hàng Câu hỏi & Tạo Đề thi (Quiz & Exam Engine) - 100% ✅
+- **Ngân hàng câu hỏi (Question Bank):**
+  - Quản lý theo Chủ đề (`QuestionTopic`) và Độ khó (`EASY`, `MEDIUM`, `HARD`).
+  - Đa dạng dạng câu hỏi (`SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `FILL_IN_BLANK`, `SHORT_ANSWER`).
+- **Tạo đề thi đa dạng (`compositionMode`):**
+  - **Tạo đề cố định (`FIXED`):** Chọn đích danh từng câu hỏi và tùy chỉnh số điểm/vị trí.
+  - **Tạo đề ngẫu nhiên (`RANDOM_RULE`):** Tạo quy tắc tự động bốc câu hỏi ngẫu nhiên theo Chủ đề, Độ khó và Số điểm.
+- **Cấu hình phòng thi nâng cao:**
+  - Giới hạn thời gian (`timeLimitMinutes`), thời điểm mở/đóng đề (`availableFrom`/`availableUntil`).
+  - Giới hạn số lần nộp bài (`maxAttempts`), điểm đạt (`passingScore`).
+  - Cấu hình Xáo trộn câu hỏi (`shuffleQuestions`) & Xáo trộn đáp án (`shuffleOptions`) chống gian lận.
 
 ---
 
-## Công nghệ sử dụng
+## 🛠 Công nghệ sử dụng
 
-- Java 21+
-- Spring Boot (Spring WebMVC, Spring Data JPA, Spring Security)
-- MySQL 8.0 (Cơ sở dữ liệu chính)
-- Flyway (Quản lý và tự động hóa cơ sở dữ liệu)
-- H2 Database (Cơ sở dữ liệu in-memory phục vụ kiểm thử)
-- JJWT (Xác thực và phân quyền qua JSON Web Token)
-- Lombok (Giảm thiểu mã lặp)
-- Maven (Quản lý phụ thuộc và xây dựng dự án)
-- Graphify (Đồ thị tri thức mã nguồn hỗ trợ truy vấn kiến trúc dự án)
+- **Java 21+** & **Spring Boot 3.x** (Spring WebMVC, Spring Data JPA, Spring Security)
+- **MySQL 8.0** (Cơ sở dữ liệu chính)
+- **Flyway** (Quản lý và tự động hóa cơ sở dữ liệu migrations V1 -> V7)
+- **H2 Database** (Cơ sở dữ liệu in-memory cho Unit/Integration Testing)
+- **JJWT** (Xác thực và phân quyền qua Stateless JSON Web Token)
+- **Lombok** (Giảm thiểu boilerplate code)
+- **Maven** (Quản lý dependencies và build tool)
+- **Graphify** (Đồ thị tri thức mã nguồn hỗ trợ truy vấn kiến trúc dự án)
 
-## Yêu cầu hệ thống
+---
 
+## 🚀 Hướng dẫn chạy ứng dụng
+
+### 1. Yêu cầu hệ thống
 - JDK 21 trở lên
 - MySQL Server 8.0 trở lên
-- Maven 3.8+ (hoặc sử dụng wrapper ./mvnw)
+- Maven 3.8+ (hoặc dùng wrapper `./mvnw`)
 
-## Cấu hình cơ sở dữ liệu và bảo mật
-
+### 2. Cấu hình cơ sở dữ liệu
 Tạo cơ sở dữ liệu MySQL:
-
 ```sql
 CREATE DATABASE IF NOT EXISTS e_learning;
 ```
 
-Thiết lập các biến môi trường cấu hình (khuyên dùng cho môi trường sản xuất):
+Các biến môi trường tùy chọn (nếu chạy sản xuất):
+- `MYSQL_URL=jdbc:mysql://localhost:3306/e_learning?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC`
+- `MYSQL_USER=root`
+- `MYSQL_PASSWORD=<your_mysql_password>`
+- `JWT_SECRET=<min_32_chars_secret_key>`
 
-- MYSQL_URL=jdbc:mysql://localhost:3306/e_learning?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-- MYSQL_USER=root
-- MYSQL_PASSWORD=<mat_khau_mysql>
-- JWT_SECRET=<chuoi_bi_mat_jwt_do_dai_toi_thieu_32_ky_tu>
+*(Ở môi trường local dev, các giá trị trên tự động rơi về thông số mặc định nếu không truyền biến môi trường).*
 
-Mặc định khi chạy môi trường phát triển local, các giá trị trên sẽ tự động rơi về thông số mặc định nếu biến môi trường chưa được thiết lập.
+### 3. Chạy lệnh
+- **Chạy bài kiểm thử tự động (Unit & Integration tests):**
+  ```bash
+  ./mvnw test
+  ```
+- **Khởi chạy ứng dụng backend:**
+  ```bash
+  ./mvnw spring-boot:run
+  ```
+  Ứng dụng sẽ lắng nghe tại cổng `8080` (`http://localhost:8080`).
 
-## Hướng dẫn chạy ứng dụng
+---
 
-1. Chạy bài kiểm thử tự động:
-   ./mvnw test
+## 🧠 Tích hợp Graphify Knowledge Graph
 
-2. Khởi chạy ứng dụng:
-   ./mvnw spring-boot:run
+Dự án tích hợp Graphify để xây dựng đồ thị tri thức cho toàn bộ mã nguồn:
+- **Cập nhật đồ thị mã nguồn:** `python -m graphify update .`
+- **Truy vấn mối quan hệ kiến trúc:** `python -m graphify query "<câu_hỏi_kiến_trúc>"`
 
-Ứng dụng sẽ hoạt động tại cổng 8080 (http://localhost:8080).
+---
 
-## Tích hợp Graphify
+## 📂 Cấu trúc dự án
 
-Dự án sử dụng Graphify để tạo đồ thị tri thức mã nguồn (Knowledge Graph), giúp tối ưu hóa việc định vị file và hiểu kiến trúc dự án:
-
-1. Xây dựng đồ thị mã nguồn:
-   graphify .
-
-2. Truy vấn mối quan hệ giữa các thành phần:
-   graphify query "<cau_hoi_kien_truc>"
-
-3. Cập nhật đồ thị sau khi thay đổi mã nguồn lớn:
-   graphify --update
-
-Tất cả dữ liệu đầu ra của Graphify được tự động loại trừ khỏi kho chứa Git thông qua tập tin .gitignore.
-
-## Cấu trúc dự án
-
-- src/main/java/com/example/learning_backend:
-  - user: Quản lý người dùng và phân quyền.
-  - course: Quản lý khóa học, phần học, bài học.
-  - assessment: Quản lý bài kiểm tra, câu hỏi, lựa chọn đáp án.
-  - enrollment: Quản lý đăng ký học và tiến độ bài học.
-  - submission: Quản lý làm bài và chấm điểm.
-  - auth: Xử lý xác thực và quản lý token.
-  - common: Các thành phần dùng chung (BaseEntity, ExceptionHandler).
-- src/main/resources/db/migration: Các tập tin Flyway SQL migration.
+```text
+src/main/java/com/example/learning_backend/
+├── auth/           # Xử lý đăng nhập, cấp phát JWT, đăng ký, quên mật khẩu
+├── user/           # Quản lý người dùng, phân quyền (Role)
+├── course/         # Quản lý khóa học, phần học (Section), bài học (Lesson)
+├── enrollment/     # Đăng ký khóa học, theo dõi % tiến độ học tập
+├── assessment/     # Ngân hàng câu hỏi, chủ đề, quy tắc ra đề & tạo đề thi
+├── submission/     # (Đang phát triển) Xử lý lượt làm bài & chấm điểm bài thi
+└── common/         # Entity cơ sở (BaseEntity), ExceptionHandler toàn cục
+```
