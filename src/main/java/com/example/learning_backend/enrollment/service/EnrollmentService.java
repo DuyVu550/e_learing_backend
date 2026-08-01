@@ -1,9 +1,10 @@
 package com.example.learning_backend.enrollment.service;
 
-import com.example.learning_backend.course.entity.Lesson;
 import com.example.learning_backend.course.entity.Course;
+import com.example.learning_backend.course.entity.Lesson;
 import com.example.learning_backend.course.repository.CourseRepository;
 import com.example.learning_backend.course.repository.LessonRepository;
+import com.example.learning_backend.enrollment.dto.CourseProgressResponse;
 import com.example.learning_backend.enrollment.dto.EnrollmentResponse;
 import com.example.learning_backend.enrollment.dto.LessonProgressRequest;
 import com.example.learning_backend.enrollment.dto.LessonProgressResponse;
@@ -15,6 +16,8 @@ import com.example.learning_backend.enrollment.repository.EnrollmentRepository;
 import com.example.learning_backend.enrollment.repository.LessonProgressRepository;
 import com.example.learning_backend.user.entity.User;
 import com.example.learning_backend.user.repository.UserRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
@@ -72,6 +75,8 @@ public class EnrollmentService {
         User user = requireUser(email);
         Lesson lesson = lessonRepository.findById(lessonId)
             .orElseThrow(() -> new IllegalArgumentException("Lesson not found: " + lessonId));
+        Long courseId = lesson.getSection().getCourse().getId();
+        Enrollment enrollment = requireEnrollment(user.getId(), courseId);
 
         LessonProgress progress = lessonProgressRepository.findByUserIdAndLessonId(user.getId(), lessonId)
             .orElseGet(() -> {
@@ -83,14 +88,68 @@ public class EnrollmentService {
         progress.setStatus(request.status());
         progress.setLastPositionSeconds(request.lastPositionSeconds());
         if (request.status() == LessonProgressStatus.COMPLETED) {
-            progress.setCompletedAt(LocalDateTime.now());
+            if (progress.getCompletedAt() == null) {
+                progress.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            progress.setCompletedAt(null);
         }
-        return toResponse(lessonProgressRepository.save(progress));
+
+        LessonProgress saved = lessonProgressRepository.save(progress);
+        syncEnrollmentCompletion(user.getId(), courseId, enrollment);
+        return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public CourseProgressResponse getCourseProgress(String email, Long courseId) {
+        User user = requireUser(email);
+        courseRepository.findById(courseId)
+            .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        requireEnrollment(user.getId(), courseId);
+        return buildCourseProgress(user.getId(), courseId);
     }
 
     private User requireUser(String email) {
         return userRepository.findByEmail(email)
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+    }
+
+    private Enrollment requireEnrollment(Long userId, Long courseId) {
+        Enrollment enrollment = enrollmentRepository.findByUserIdAndCourseId(userId, courseId)
+            .orElseThrow(() -> new IllegalArgumentException("User is not enrolled in course: " + courseId));
+        if (enrollment.getStatus() == EnrollmentStatus.CANCELLED) {
+            throw new IllegalArgumentException("Enrollment is cancelled for course: " + courseId);
+        }
+        return enrollment;
+    }
+
+    private void syncEnrollmentCompletion(Long userId, Long courseId, Enrollment enrollment) {
+        CourseProgressResponse progress = buildCourseProgress(userId, courseId);
+        if (progress.completed()) {
+            enrollment.setStatus(EnrollmentStatus.COMPLETED);
+            if (enrollment.getCompletedAt() == null) {
+                enrollment.setCompletedAt(LocalDateTime.now());
+            }
+            return;
+        }
+        enrollment.setStatus(EnrollmentStatus.ACTIVE);
+        enrollment.setCompletedAt(null);
+    }
+
+    private CourseProgressResponse buildCourseProgress(Long userId, Long courseId) {
+        long totalLessons = lessonRepository.countBySectionCourseId(courseId);
+        long completedLessons = lessonProgressRepository.countByUserIdAndStatusAndLessonSectionCourseId(
+            userId,
+            LessonProgressStatus.COMPLETED,
+            courseId
+        );
+        BigDecimal percentage = totalLessons == 0
+            ? BigDecimal.ZERO
+            : BigDecimal.valueOf(completedLessons)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(totalLessons), 2, RoundingMode.HALF_UP);
+        boolean completed = totalLessons > 0 && completedLessons == totalLessons;
+        return new CourseProgressResponse(courseId, totalLessons, completedLessons, percentage, completed);
     }
 
     private EnrollmentResponse toResponse(Enrollment enrollment) {

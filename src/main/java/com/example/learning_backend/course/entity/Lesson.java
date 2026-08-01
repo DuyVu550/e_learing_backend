@@ -1,8 +1,11 @@
 package com.example.learning_backend.course.entity;
 
 import com.example.learning_backend.common.entity.BaseEntity;
+import com.example.learning_backend.course.enums.LessonContentType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -23,11 +26,18 @@ public class Lesson extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String title;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "content_type", nullable = false, length = 30)
+    private LessonContentType contentType = LessonContentType.TEXT;
+
     @Column(columnDefinition = "LONGTEXT")
     private String content;
 
     @Column(name = "video_url", length = 500)
     private String videoUrl;
+
+    @Column(name = "document_url", length = 500)
+    private String documentUrl;
 
     @Column(name = "duration_seconds")
     private Integer durationSeconds;
