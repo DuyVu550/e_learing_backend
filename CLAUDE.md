@@ -44,9 +44,9 @@ This is a layered Spring Boot backend under `com.example.learning_backend`:
 - `auth`: auth REST API, login/register/logout/refresh/change-password/forgot-reset flows, JWT creation/validation, refresh and password-reset token persistence.
 - `user`: `User`, `Role`, user status, and repositories used by auth and ownership relationships.
 - `course`: course, section, lesson entities plus course controller/service/repositories.
-- `assessment`: assessment, question, option entities plus assessment controller/service/repositories.
-- `enrollment`: enrollment and lesson progress entities/repositories/service; no controller is currently present.
-- `submission`: assessment attempt and answer persistence; no controller/service is currently present.
+- `assessment`: assessment, question, option, topic, rule, selection entities plus assessment/question bank controllers/services/repositories.
+- `enrollment`: enrollment and lesson progress entities/repositories/service/controller.
+- `submission`: assessment attempt and answer persistence; submission controller/service (in progress).
 - `common`: health endpoint, `BaseEntity`, API error model, global exception handling.
 - `config`: Spring Security, JPA auditing, and role seed initialization.
 
