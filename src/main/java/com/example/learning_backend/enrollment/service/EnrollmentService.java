@@ -33,19 +33,22 @@ public class EnrollmentService {
     private final CourseRepository courseRepository;
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
+    private final EnrollmentAccessPolicy enrollmentAccessPolicy;
 
     public EnrollmentService(
         EnrollmentRepository enrollmentRepository,
         LessonProgressRepository lessonProgressRepository,
         CourseRepository courseRepository,
         LessonRepository lessonRepository,
-        UserRepository userRepository
+        UserRepository userRepository,
+        EnrollmentAccessPolicy enrollmentAccessPolicy
     ) {
         this.enrollmentRepository = enrollmentRepository;
         this.lessonProgressRepository = lessonProgressRepository;
         this.courseRepository = courseRepository;
         this.lessonRepository = lessonRepository;
         this.userRepository = userRepository;
+        this.enrollmentAccessPolicy = enrollmentAccessPolicy;
     }
 
     public EnrollmentResponse enroll(String email, Long courseId) {
@@ -115,12 +118,7 @@ public class EnrollmentService {
     }
 
     private Enrollment requireEnrollment(Long userId, Long courseId) {
-        Enrollment enrollment = enrollmentRepository.findByUserIdAndCourseId(userId, courseId)
-            .orElseThrow(() -> new IllegalArgumentException("User is not enrolled in course: " + courseId));
-        if (enrollment.getStatus() == EnrollmentStatus.CANCELLED) {
-            throw new IllegalArgumentException("Enrollment is cancelled for course: " + courseId);
-        }
-        return enrollment;
+        return enrollmentAccessPolicy.requireActive(userId, courseId);
     }
 
     private void syncEnrollmentCompletion(Long userId, Long courseId, Enrollment enrollment) {

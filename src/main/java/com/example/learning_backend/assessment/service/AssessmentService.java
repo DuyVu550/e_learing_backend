@@ -25,6 +25,12 @@ import com.example.learning_backend.course.entity.Course;
 import com.example.learning_backend.course.entity.Lesson;
 import com.example.learning_backend.course.repository.CourseRepository;
 import com.example.learning_backend.course.repository.LessonRepository;
+import com.example.learning_backend.course.service.CourseAccessPolicy;
+import com.example.learning_backend.enrollment.entity.Enrollment;
+import com.example.learning_backend.enrollment.enums.EnrollmentStatus;
+import com.example.learning_backend.enrollment.repository.EnrollmentRepository;
+import com.example.learning_backend.notification.enums.NotificationType;
+import com.example.learning_backend.notification.service.NotificationService;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +52,9 @@ public class AssessmentService {
     private final AssessmentQuestionSelectionRepository selectionRepository;
     private final AssessmentQuestionRuleRepository ruleRepository;
     private final QuestionBankService questionBankService;
+    private final CourseAccessPolicy courseAccessPolicy;
+    private final EnrollmentRepository enrollmentRepository;
+    private final NotificationService notificationService;
 
     public AssessmentService(
         AssessmentRepository assessmentRepository,
@@ -55,7 +64,10 @@ public class AssessmentService {
         QuestionTopicRepository questionTopicRepository,
         AssessmentQuestionSelectionRepository selectionRepository,
         AssessmentQuestionRuleRepository ruleRepository,
-        QuestionBankService questionBankService
+        QuestionBankService questionBankService,
+        CourseAccessPolicy courseAccessPolicy,
+        EnrollmentRepository enrollmentRepository,
+        NotificationService notificationService
     ) {
         this.assessmentRepository = assessmentRepository;
         this.courseRepository = courseRepository;
@@ -65,6 +77,9 @@ public class AssessmentService {
         this.selectionRepository = selectionRepository;
         this.ruleRepository = ruleRepository;
         this.questionBankService = questionBankService;
+        this.courseAccessPolicy = courseAccessPolicy;
+        this.enrollmentRepository = enrollmentRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -101,6 +116,7 @@ public class AssessmentService {
         assessment.setPassingScore(request.passingScore());
         assessment.setShuffleQuestions(Boolean.TRUE.equals(request.shuffleQuestions()));
         assessment.setShuffleOptions(Boolean.TRUE.equals(request.shuffleOptions()));
+        assessment.setShowAnswersAfterSubmit(Boolean.TRUE.equals(request.showAnswersAfterSubmit()));
         return toResponse(assessmentRepository.save(assessment));
     }
 
@@ -150,6 +166,9 @@ public class AssessmentService {
         }
         if (request.shuffleOptions() != null) {
             assessment.setShuffleOptions(request.shuffleOptions());
+        }
+        if (request.showAnswersAfterSubmit() != null) {
+            assessment.setShowAnswersAfterSubmit(request.showAnswersAfterSubmit());
         }
         validateAssessmentSettings(assessment);
         if (nextStatus != null && nextStatus != assessment.getStatus()) {
@@ -326,6 +345,28 @@ public class AssessmentService {
             }
         }
         assessment.setStatus(nextStatus);
+        if (nextStatus == AssessmentStatus.PUBLISHED) {
+            // Callers only reach this on a real status change, so students are announced to once.
+            announcePublication(assessment);
+        }
+    }
+
+    /**
+     * ponytail: fans out one row per enrolled student in this transaction. Fine at course scale;
+     * batch or move off-request if a course ever grows past a few thousand enrollments.
+     */
+    private void announcePublication(Assessment assessment) {
+        List<Enrollment> enrollments = enrollmentRepository
+            .findByCourseIdAndStatusNot(assessment.getCourse().getId(), EnrollmentStatus.CANCELLED);
+        for (Enrollment enrollment : enrollments) {
+            notificationService.notify(
+                enrollment.getUser(),
+                NotificationType.ASSESSMENT_PUBLISHED,
+                "Có bài kiểm tra mới",
+                "Bài kiểm tra mới đã được mở: " + assessment.getTitle(),
+                assessment.getId()
+            );
+        }
     }
 
     private void validateAssessmentSettings(Assessment assessment) {
@@ -410,17 +451,7 @@ public class AssessmentService {
     }
 
     private void ensureCanManage(Course course, Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalArgumentException("Authenticated user is required");
-        }
-        boolean admin = authentication.getAuthorities().stream()
-            .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
-        if (admin) {
-            return;
-        }
-        if (course.getInstructor() == null || !course.getInstructor().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException("You cannot manage this course");
-        }
+        courseAccessPolicy.ensureCanManage(course, authentication);
     }
 
     private void ensureDraftComposition(Assessment assessment, AssessmentCompositionMode mode) {
@@ -478,7 +509,8 @@ public class AssessmentService {
             assessment.getMaxAttempts(),
             assessment.getPassingScore(),
             assessment.getShuffleQuestions(),
-            assessment.getShuffleOptions()
+            assessment.getShuffleOptions(),
+            assessment.getShowAnswersAfterSubmit()
         );
     }
 

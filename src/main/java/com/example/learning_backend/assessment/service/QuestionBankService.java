@@ -17,6 +17,7 @@ import com.example.learning_backend.assessment.repository.QuestionRepository;
 import com.example.learning_backend.assessment.repository.QuestionTopicRepository;
 import com.example.learning_backend.course.entity.Course;
 import com.example.learning_backend.course.repository.CourseRepository;
+import com.example.learning_backend.course.service.CourseAccessPolicy;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.security.core.Authentication;
@@ -32,19 +33,22 @@ public class QuestionBankService {
     private final QuestionOptionRepository questionOptionRepository;
     private final QuestionTopicRepository questionTopicRepository;
     private final AssessmentQuestionSelectionRepository selectionRepository;
+    private final CourseAccessPolicy courseAccessPolicy;
 
     public QuestionBankService(
         CourseRepository courseRepository,
         QuestionRepository questionRepository,
         QuestionOptionRepository questionOptionRepository,
         QuestionTopicRepository questionTopicRepository,
-        AssessmentQuestionSelectionRepository selectionRepository
+        AssessmentQuestionSelectionRepository selectionRepository,
+        CourseAccessPolicy courseAccessPolicy
     ) {
         this.courseRepository = courseRepository;
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
         this.questionTopicRepository = questionTopicRepository;
         this.selectionRepository = selectionRepository;
+        this.courseAccessPolicy = courseAccessPolicy;
     }
 
     @Transactional(readOnly = true)
@@ -239,17 +243,7 @@ public class QuestionBankService {
     }
 
     private void ensureCanManage(Course course, Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalArgumentException("Authenticated user is required");
-        }
-        boolean admin = authentication.getAuthorities().stream()
-            .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
-        if (admin) {
-            return;
-        }
-        if (course.getInstructor() == null || !course.getInstructor().getEmail().equals(authentication.getName())) {
-            throw new IllegalArgumentException("You cannot manage this course");
-        }
+        courseAccessPolicy.ensureCanManage(course, authentication);
     }
 
     private QuestionTopicResponse toTopicResponse(QuestionTopic topic) {

@@ -24,6 +24,32 @@ Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được
 - Tạo đề thi (Exam Creation): Hỗ trợ đề cố định (`FIXED`) và đề ngẫu nhiên theo quy tắc (`RANDOM_RULE`).
 - Cấu hình phòng thi (Exam Settings): Thời gian làm bài, mốc thời gian mở/đóng đề, số lần nộp bài tối đa, điểm đạt, xáo trộn câu hỏi & xáo trộn đáp án chống gian lận.
 
+### 4. Khối Nghiệp vụ Làm bài & Chấm điểm (Taking Exam & Grading) - Đã hoàn thành 100%
+- Luồng làm bài: Bắt đầu / tiếp tục lượt thi (`startOrResume`) với kiểm tra ghi danh, trạng thái `PUBLISHED`, khung giờ mở đề và số lần làm bài còn lại. Thứ tự câu hỏi & đáp án xáo trộn ổn định theo `attemptId` nên F5 hay vào lại không bị đảo lộn.
+- Lưu nháp tự động (Auto-Save Draft) qua `PUT /api/attempts/{attemptId}/answers`, kèm đánh dấu câu hỏi (Bookmark/Flag) trong cùng payload.
+- Hết giờ tự động nộp bài (Auto-submit): Hạn nộp = `min(startedAt + timeLimitMinutes, availableUntil)`, được kiểm tra mỗi lần chạm vào lượt thi nên không cần job nền.
+- Chấm tự động: Trắc nghiệm 1 đáp án / Đúng-Sai chấm trọn điểm; Trắc nghiệm nhiều đáp án chấm **điểm từng phần** (`(số đúng − số sai) / tổng số đáp án đúng`, không âm); Điền vào chỗ trống so khớp `expectedAnswer` bỏ qua hoa thường và khoảng trắng thừa.
+- Chấm thủ công: Câu tự luận (`SHORT_ANSWER`) giữ lượt thi ở trạng thái `SUBMITTED` cho tới khi giảng viên chấm điểm + để lại nhận xét qua `PATCH /api/answers/{answerId}/grade`, sau đó lượt thi chuyển sang `GRADED`.
+- Xem lại kết quả: Bảng điểm chi tiết từng câu; đáp án đúng và lời giải chỉ hiển thị khi đề bật `showAnswersAfterSubmit`. DTO dành cho học viên đang làm bài không chứa trường đáp án đúng nên không thể lộ đề.
+
+### 5. Khối Nghiệp vụ Thống kê & Bảng xếp hạng (Analytics & Leaderboard) - Đã hoàn thành 100%
+- Bảng xếp hạng theo đề thi: `GET /api/assessments/{id}/leaderboard`. Xếp theo Điểm số giảm dần, bằng điểm thì ai nộp nhanh hơn (`submittedAt − startedAt`) đứng trên. Trùng cả điểm lẫn thời gian thì đồng hạng theo chuẩn competition ranking (1, 2, 2, 4).
+- Bảng xếp hạng tổng hệ thống: `GET /api/leaderboard`, cộng dồn lượt thi mới nhất của từng đề mà học viên đã làm.
+- Mỗi học viên chỉ tính **lượt thi mới nhất** của một đề; chỉ tính lượt đã `GRADED` để bài còn chờ chấm tự luận không làm sai lệch thứ hạng. Payload chỉ trả `userId` + `fullName`, **không lộ email**.
+- Báo cáo cho giảng viên: `GET /api/assessments/{id}/report` (chỉ ADMIN/INSTRUCTOR sở hữu khóa học). Gồm điểm trung bình, cao nhất, thấp nhất, tỷ lệ đạt và số bài còn chờ chấm.
+- Phổ điểm (Score Distribution) phân loại Giỏi (≥80%), Khá (65–79%), Trung bình (50–64%), Yếu (<50%).
+- Phân tích câu hỏi: xếp theo tỷ lệ làm sai giảm dần để giảng viên thấy ngay câu nào khó nhất. Trả kèm `answeredCount` nên câu chưa ai làm hiện rõ là "chưa có dữ liệu" thay vì hiểu nhầm thành 0% sai.
+- Index `idx_attempts_assessment_status_score (assessment_id, status, score)` phục vụ truy vấn xếp hạng.
+
+### 6. Khối Nghiệp vụ Mở rộng (Q&A Forum & Notifications) - Đã hoàn thành
+- Diễn đàn Hỏi - Đáp dưới mỗi bài học: `POST|GET /api/lessons/{lessonId}/comments`, `PATCH|DELETE /api/comments/{commentId}`. Phân luồng 1 cấp (hỏi → trả lời), không cho trả lời lồng nhau; xóa câu hỏi thì xóa luôn các trả lời.
+- Quyền: học viên đã ghi danh và người quản lý khóa học được bình luận; chỉ tác giả được sửa; tác giả hoặc người quản lý khóa học được xóa.
+- Thông báo trong ứng dụng: `GET /api/notifications/me` (kèm `?unreadOnly=true`), `GET /api/notifications/me/unread-count`, `PATCH /api/notifications/{id}/read`, `POST /api/notifications/me/read-all`.
+- Sinh thông báo tự động cho 4 sự kiện: chấm xong bài tự luận (báo học viên), mở đề thi mới (báo toàn bộ học viên đang ghi danh), có người trả lời bình luận (báo tác giả), có câu hỏi mới trong bài học (báo giảng viên). Không bao giờ tự báo cho chính người vừa thao tác.
+- Thông báo được ghi trong cùng transaction với hành động sinh ra nó, nên không thể tồn tại thông báo cho một thao tác đã rollback.
+- Chưa làm: **Thanh toán trực tuyến (VNPAY/Momo)** và **gửi thông báo qua Email** (chưa có SMTP; hệ thống mới chỉ lưu và trả thông báo qua API). Nhắc "sắp hết hạn nộp bài" cũng chưa làm vì cần job nền định kỳ, trong khi Module 4 cố ý không dùng scheduler.
+
+
 ---
 
 ## Công nghệ sử dụng
@@ -94,6 +120,9 @@ Tất cả dữ liệu đầu ra của Graphify được tự động loại tr�
   - assessment: Quản lý bài kiểm tra, câu hỏi, lựa chọn đáp án.
   - enrollment: Quản lý đăng ký học và tiến độ bài học.
   - submission: Quản lý làm bài và chấm điểm.
+  - analytics: Bảng xếp hạng và báo cáo thống kê đề thi.
+  - forum: Hỏi đáp / bình luận dưới bài học.
+  - notification: Thông báo trong ứng dụng.
   - auth: Xử lý xác thực và quản lý token.
   - common: Các thành phần dùng chung (BaseEntity, ExceptionHandler).
 - src/main/resources/db/migration: Các tập tin Flyway SQL migration.

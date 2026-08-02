@@ -131,7 +131,8 @@ class AssessmentAuthoringServiceTests {
                 1,
                 BigDecimal.valueOf(70),
                 false,
-                true
+                true,
+                false
             ),
             instructorAuth
         );
@@ -162,7 +163,8 @@ class AssessmentAuthoringServiceTests {
                 1,
                 BigDecimal.valueOf(70),
                 true,
-                true
+                true,
+                false
             ),
             instructorAuth
         );

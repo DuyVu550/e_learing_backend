@@ -1,10 +1,10 @@
 package com.example.learning_backend.submission.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
+// ponytail: shared by auto-save and final submit; an empty list is valid when the student clears their last answer.
 public record AssessmentSubmitRequest(
-    @NotEmpty List<@Valid AnswerSubmitRequest> answers
+    List<@Valid AnswerSubmitRequest> answers
 ) {
 }

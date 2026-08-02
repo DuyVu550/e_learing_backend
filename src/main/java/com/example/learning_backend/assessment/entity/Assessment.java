@@ -71,6 +71,9 @@ public class Assessment extends BaseEntity {
 
     @Column(name = "shuffle_options", nullable = false)
     private Boolean shuffleOptions = Boolean.FALSE;
+
+    @Column(name = "show_answers_after_submit", nullable = false)
+    private Boolean showAnswersAfterSubmit = Boolean.FALSE;
 }
 
 

@@ -46,9 +46,14 @@ This is a layered Spring Boot backend under `com.example.learning_backend`:
 - `course`: course, section, lesson entities plus course controller/service/repositories.
 - `assessment`: assessment, question, option, topic, rule, selection entities plus assessment/question bank controllers/services/repositories.
 - `enrollment`: enrollment and lesson progress entities/repositories/service/controller.
-- `submission`: assessment attempt and answer persistence; submission controller/service (in progress).
+- `submission`: assessment attempt and answer persistence; exam-taking flow, auto-save drafts, auto-grading, manual essay grading, and result review.
+- `analytics`: read-only leaderboards (per assessment and system-wide) and instructor reports (score distribution, per-question wrong-rate). Owns no tables.
+- `forum`: lesson Q&A comments, one level of replies.
+- `notification`: in-app notifications. DB-backed only — there is no mail dependency, scheduler, or async executor in this project.
 - `common`: health endpoint, `BaseEntity`, API error model, global exception handling.
 - `config`: Spring Security, JPA auditing, and role seed initialization.
+
+Cross-cutting authorization rules live in two shared components rather than being copied per service: [CourseAccessPolicy.java](src/main/java/com/example/learning_backend/course/service/CourseAccessPolicy.java) ("may this caller manage this course?" — `canManage` returns a boolean, `ensureCanManage` throws) and [EnrollmentAccessPolicy.java](src/main/java/com/example/learning_backend/enrollment/service/EnrollmentAccessPolicy.java) ("is this user an active member?"). Use them instead of writing a new ownership check.
 
 Request flow is controller -> service -> Spring Data JPA repository -> entity. DTOs define request/response boundaries. Services are the right place for transaction boundaries and business rules; controllers should stay thin.
 
@@ -57,7 +62,7 @@ Request flow is controller -> service -> Spring Data JPA repository -> entity. D
 - [SecurityConfig.java](src/main/java/com/example/learning_backend/config/SecurityConfig.java) disables CSRF/basic auth, uses stateless sessions, and installs `JwtAuthenticationFilter` before Spring's username/password filter.
 - Public routes: `/api/health`, `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/forgot-password`, `/api/auth/reset-password`.
 - All other routes require authentication.
-- Course and assessment creation use `@PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")`.
+- Course and assessment creation, manual answer grading, and the instructor assessment report use `@PreAuthorize("hasAnyRole('ADMIN', 'INSTRUCTOR')")`. Role gating is only the first gate — per-course ownership is then enforced in the service via `CourseAccessPolicy`.
 - JWTs include email subject, `userId`, roles, and token type. Refresh/password-reset tokens are stored hashed, not raw.
 
 ## Persistence model
@@ -73,7 +78,11 @@ Core relationships:
 - `Assessment` belongs to `Course` and optionally `Lesson`.
 - `Question` belongs to `Assessment`; `QuestionOption` belongs to `Question`.
 - `AssessmentAttempt` links `Assessment` and `User`; `Answer` links attempts, questions, and selected options.
+- `LessonComment` belongs to `Lesson` and `User`, with an optional self-reference `parent` (replies are one level deep).
+- `Notification` belongs to `User`; `referenceId` + `type` point at the subject without encoding a frontend route.
 - `RefreshToken` and `PasswordResetToken` belong to `User`.
+
+Note the test suite runs H2 with `spring.flyway.enabled=false` and `ddl-auto=create-drop`, so migrations are never exercised by `mvnw test` and a migration/entity mismatch only fails at real startup against MySQL. After any schema change, also run `spring-boot:run` once to confirm Flyway applies and `ddl-auto=validate` passes.
 
 ## Graphify navigation
 

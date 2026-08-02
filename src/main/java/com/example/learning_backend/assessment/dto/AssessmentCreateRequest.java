@@ -23,7 +23,8 @@ public record AssessmentCreateRequest(
     @Min(1) Integer maxAttempts,
     @DecimalMin(value = "0.0") @DecimalMax(value = "100.0") BigDecimal passingScore,
     Boolean shuffleQuestions,
-    Boolean shuffleOptions
+    Boolean shuffleOptions,
+    Boolean showAnswersAfterSubmit
 ) {
 }
 

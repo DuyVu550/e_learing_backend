@@ -23,6 +23,7 @@ public record AssessmentUpdateRequest(
     @DecimalMin(value = "0.0") @DecimalMax(value = "100.0") BigDecimal passingScore,
     Boolean shuffleQuestions,
     Boolean shuffleOptions,
+    Boolean showAnswersAfterSubmit,
     AssessmentStatus status
 ) {
 }

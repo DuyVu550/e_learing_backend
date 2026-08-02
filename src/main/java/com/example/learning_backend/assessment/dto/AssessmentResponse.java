@@ -21,7 +21,8 @@ public record AssessmentResponse(
     Integer maxAttempts,
     BigDecimal passingScore,
     Boolean shuffleQuestions,
-    Boolean shuffleOptions
+    Boolean shuffleOptions,
+    Boolean showAnswersAfterSubmit
 ) {
 }
 

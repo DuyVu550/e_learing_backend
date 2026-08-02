@@ -3,6 +3,7 @@ package com.example.learning_backend.submission.entity;
 import com.example.learning_backend.assessment.entity.Question;
 import com.example.learning_backend.assessment.entity.QuestionOption;
 import com.example.learning_backend.common.entity.BaseEntity;
+import com.example.learning_backend.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -35,6 +36,9 @@ public class Answer extends BaseEntity {
     @Column(name = "answer_text", columnDefinition = "TEXT")
     private String answerText;
 
+    @Column(nullable = false)
+    private Boolean flagged = Boolean.FALSE;
+
     @Column(name = "is_correct")
     private Boolean correct;
 
@@ -43,6 +47,13 @@ public class Answer extends BaseEntity {
 
     @Column(name = "graded_at")
     private LocalDateTime gradedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String feedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "graded_by")
+    private User gradedBy;
 
     @ManyToMany
     @JoinTable(

@@ -1,6 +1,8 @@
 package com.example.learning_backend.enrollment.repository;
 
 import com.example.learning_backend.enrollment.entity.Enrollment;
+import com.example.learning_backend.enrollment.enums.EnrollmentStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +15,8 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     Optional<Enrollment> findByUserIdAndCourseId(Long userId, Long courseId);
 
     Page<Enrollment> findByUserId(Long userId, Pageable pageable);
+
+    List<Enrollment> findByCourseIdAndStatusNot(Long courseId, EnrollmentStatus status);
 }
 
 

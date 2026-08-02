@@ -6,6 +6,7 @@ import java.util.Set;
 public record AnswerSubmitRequest(
     @NotNull Long questionId,
     String answerText,
-    Set<Long> selectedOptionIds
+    Set<Long> selectedOptionIds,
+    Boolean flagged
 ) {
 }
