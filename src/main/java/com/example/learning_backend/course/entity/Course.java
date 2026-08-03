@@ -14,6 +14,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -34,6 +35,10 @@ public class Course extends BaseEntity {
 
     @Column(name = "thumbnail_url", length = 500)
     private String thumbnailUrl;
+
+    /** Sale price in VND. Zero means the course is free and needs no payment to enroll. */
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal price = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 30)

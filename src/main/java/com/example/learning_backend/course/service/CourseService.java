@@ -16,6 +16,7 @@ import com.example.learning_backend.course.repository.CourseSectionRepository;
 import com.example.learning_backend.course.repository.LessonRepository;
 import com.example.learning_backend.user.entity.User;
 import com.example.learning_backend.user.repository.UserRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,6 +87,7 @@ public class CourseService {
         course.setTitle(request.title());
         course.setDescription(request.description());
         course.setLevel(request.level());
+        course.setPrice(request.price() == null ? BigDecimal.ZERO : request.price());
         course.setInstructor(instructor);
         return toResponse(courseRepository.save(course));
     }
@@ -152,6 +154,7 @@ public class CourseService {
             course.getDescription(),
             course.getLevel(),
             course.getStatus(),
+            course.getPrice(),
             course.getInstructor() != null ? course.getInstructor().getId() : null
         );
     }
@@ -168,6 +171,7 @@ public class CourseService {
             course.getDescription(),
             course.getLevel(),
             course.getStatus(),
+            course.getPrice(),
             course.getInstructor() != null ? course.getInstructor().getId() : null,
             sections
         );

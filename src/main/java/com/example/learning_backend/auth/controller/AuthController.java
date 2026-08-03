@@ -9,6 +9,7 @@ import com.example.learning_backend.auth.dto.LogoutRequest;
 import com.example.learning_backend.auth.dto.RefreshTokenRequest;
 import com.example.learning_backend.auth.dto.RegisterRequest;
 import com.example.learning_backend.auth.dto.ResetPasswordRequest;
+import com.example.learning_backend.auth.dto.RoleChangeRequest;
 import com.example.learning_backend.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -60,5 +61,11 @@ public class AuthController {
     @PostMapping("/change-password")
     public void changePassword(Authentication authentication, @Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(authentication.getName(), request);
+    }
+
+    /** Switches the caller between STUDENT and INSTRUCTOR, returning a fresh token pair. */
+    @PostMapping("/change-role")
+    public AuthResponse changeRole(Authentication authentication, @Valid @RequestBody RoleChangeRequest request) {
+        return authService.changeRole(authentication.getName(), request);
     }
 }

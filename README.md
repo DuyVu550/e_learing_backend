@@ -5,14 +5,17 @@ Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được
 ## Tiến độ khối nghiệp vụ (e_learning.md)
 
 ### 1. Khối Nghiệp vụ Người dùng & Phân quyền (Authentication & Authorization) - Đã hoàn thành 100%
-- Đăng ký tài khoản (Register): API POST /api/auth/register
+- Đăng ký tài khoản (Register): API POST /api/auth/register — nhận thêm `role` tùy chọn (`STUDENT` hoặc `INSTRUCTOR`) để đăng ký với tư cách học viên hay giảng viên. Bỏ trống thì mặc định `STUDENT`, nên client cũ không bị ảnh hưởng.
 - Đăng nhập (Login): API POST /api/auth/login
 - Đăng xuất (Logout): API POST /api/auth/logout
 - Làm mới Token (Refresh Token): API POST /api/auth/refresh
 - Đổi mật khẩu (Change Password): API POST /api/auth/change-password
+- Đổi vai trò (Change Role): API POST /api/auth/change-role — người dùng tự chuyển giữa `STUDENT` và `INSTRUCTOR`, trả về cặp token mới đã mang role mới.
 - Quên mật khẩu (Forgot Password): API POST /api/auth/forgot-password
 - Đặt lại mật khẩu (Reset Password): API POST /api/auth/reset-password
 - Phân quyền người dùng (RBAC): Mã hóa mật khẩu bằng BCrypt, phân quyền role STUDENT, INSTRUCTOR, ADMIN qua Spring Security và JWT.
+- `ADMIN` không thể tự cấp qua API: `AssignableRole` chỉ gồm `STUDENT`/`INSTRUCTOR`, gửi `"role":"ADMIN"` bị trả 400 kèm danh sách giá trị hợp lệ. Tài khoản admin duy nhất được seed lúc khởi động từ `app.admin.email` / `app.admin.password` (mặc định dev `admin@learning.local` / `Admin@12345` — **đổi trước khi deploy**). Seed chỉ tạo khi chưa có, nên restart không reset mật khẩu admin.
+- Phân quyền đọc từ database mỗi request (không tin claim trong JWT), nên hạ quyền có hiệu lực ngay với token cũ — đã kiểm chứng: sau khi chuyển về `STUDENT`, token cũ tạo khóa học bị 403.
 
 ### 2. Khối Nghiệp vụ Quản lý Khóa học & Nội dung (Course & Content Management) - Đã hoàn thành 100%
 - Cấu trúc khóa học phân cấp: Course -> CourseSection -> Lesson.
@@ -41,13 +44,19 @@ Hệ thống quản lý học tập trực tuyến (E-Learning Backend) được
 - Phân tích câu hỏi: xếp theo tỷ lệ làm sai giảm dần để giảng viên thấy ngay câu nào khó nhất. Trả kèm `answeredCount` nên câu chưa ai làm hiện rõ là "chưa có dữ liệu" thay vì hiểu nhầm thành 0% sai.
 - Index `idx_attempts_assessment_status_score (assessment_id, status, score)` phục vụ truy vấn xếp hạng.
 
-### 6. Khối Nghiệp vụ Mở rộng (Q&A Forum & Notifications) - Đã hoàn thành
+### 6. Khối Nghiệp vụ Mở rộng (Thanh toán, Q&A Forum & Notifications) - Đã hoàn thành
+- Thanh toán trực tuyến qua cổng PayOS: `POST /api/courses/{courseId}/checkout` tạo đơn và trả `checkoutUrl` (VietQR / thẻ), `GET /api/payments/me`, `GET /api/payments/{id}`, `POST /api/payments/{id}/cancel`, và webhook công khai `POST /api/payments/payos/webhook`.
+- Khóa học có `price > 0` bị khóa: `POST /api/courses/{courseId}/enroll` trả lỗi "Course requires payment" cho tới khi có đơn `PAID`. Ghi danh (`Enrollment`) chỉ được cấp bởi webhook, nên người chưa trả tiền không thể vào học bằng cách tự gọi API enroll hay quay lại `returnUrl`.
+- Webhook xác thực chữ ký HMAC-SHA256 (sắp key theo alphabet của object `data`) trước khi làm gì khác; sai chữ ký thì không đổi trạng thái. Chống gửi lặp: webhook thứ hai cho đơn đã `PAID` không tạo ghi danh hay thông báo trùng. Trả tiền thiếu bị đánh `FAILED` thay vì mở khóa học.
+- Số tiền lấy từ `courses.price` phía server và chốt vào `payments.amount` lúc tạo đơn, nên client không tự khai giá và đổi giá về sau không viết lại doanh thu cũ.
+- Báo cáo doanh thu cho Admin: `GET /api/reports/revenue?from=&to=` — tổng thu, số đơn, giá trị đơn trung bình và chi tiết theo từng khóa học. Chỉ `ROLE_ADMIN` (giảng viên bị 403).
+- Khóa PayOS (`app.payos.client-id`, `app.payos.api-key`, `app.payos.checksum-key`) đặt trong `src/main/resources/application-local.properties` — file này đã được gitignore và được nạp qua `spring.config.import=optional:...`. Thiếu khóa thì app vẫn khởi động, chỉ checkout báo lỗi.
 - Diễn đàn Hỏi - Đáp dưới mỗi bài học: `POST|GET /api/lessons/{lessonId}/comments`, `PATCH|DELETE /api/comments/{commentId}`. Phân luồng 1 cấp (hỏi → trả lời), không cho trả lời lồng nhau; xóa câu hỏi thì xóa luôn các trả lời.
 - Quyền: học viên đã ghi danh và người quản lý khóa học được bình luận; chỉ tác giả được sửa; tác giả hoặc người quản lý khóa học được xóa.
 - Thông báo trong ứng dụng: `GET /api/notifications/me` (kèm `?unreadOnly=true`), `GET /api/notifications/me/unread-count`, `PATCH /api/notifications/{id}/read`, `POST /api/notifications/me/read-all`.
-- Sinh thông báo tự động cho 4 sự kiện: chấm xong bài tự luận (báo học viên), mở đề thi mới (báo toàn bộ học viên đang ghi danh), có người trả lời bình luận (báo tác giả), có câu hỏi mới trong bài học (báo giảng viên). Không bao giờ tự báo cho chính người vừa thao tác.
+- Sinh thông báo tự động cho 5 sự kiện: chấm xong bài tự luận (báo học viên), mở đề thi mới (báo toàn bộ học viên đang ghi danh), có người trả lời bình luận (báo tác giả), có câu hỏi mới trong bài học (báo giảng viên), và thanh toán thành công (báo người mua). Không bao giờ tự báo cho chính người vừa thao tác.
 - Thông báo được ghi trong cùng transaction với hành động sinh ra nó, nên không thể tồn tại thông báo cho một thao tác đã rollback.
-- Chưa làm: **Thanh toán trực tuyến (VNPAY/Momo)** và **gửi thông báo qua Email** (chưa có SMTP; hệ thống mới chỉ lưu và trả thông báo qua API). Nhắc "sắp hết hạn nộp bài" cũng chưa làm vì cần job nền định kỳ, trong khi Module 4 cố ý không dùng scheduler.
+- Chưa làm: **gửi thông báo qua Email** (chưa có SMTP; hệ thống mới chỉ lưu và trả thông báo qua API). Nhắc "sắp hết hạn nộp bài" cũng chưa làm vì cần job nền định kỳ, trong khi Module 4 cố ý không dùng scheduler. Đối soát đơn treo (`PENDING` mà webhook không bao giờ tới) cũng chưa có vì cần scheduler.
 
 
 ---
@@ -121,6 +130,7 @@ Tất cả dữ liệu đầu ra của Graphify được tự động loại tr�
   - enrollment: Quản lý đăng ký học và tiến độ bài học.
   - submission: Quản lý làm bài và chấm điểm.
   - analytics: Bảng xếp hạng và báo cáo thống kê đề thi.
+  - payment: Tích hợp thanh toán PayOS và xử lý ghi danh tự động sau khi thanh toán.
   - forum: Hỏi đáp / bình luận dưới bài học.
   - notification: Thông báo trong ứng dụng.
   - auth: Xử lý xác thực và quản lý token.

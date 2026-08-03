@@ -14,6 +14,8 @@ import com.example.learning_backend.enrollment.enums.EnrollmentStatus;
 import com.example.learning_backend.enrollment.enums.LessonProgressStatus;
 import com.example.learning_backend.enrollment.repository.EnrollmentRepository;
 import com.example.learning_backend.enrollment.repository.LessonProgressRepository;
+import com.example.learning_backend.payment.enums.PaymentStatus;
+import com.example.learning_backend.payment.repository.PaymentRepository;
 import com.example.learning_backend.user.entity.User;
 import com.example.learning_backend.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -33,6 +35,7 @@ public class EnrollmentService {
     private final CourseRepository courseRepository;
     private final LessonRepository lessonRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
     private final EnrollmentAccessPolicy enrollmentAccessPolicy;
 
     public EnrollmentService(
@@ -41,6 +44,7 @@ public class EnrollmentService {
         CourseRepository courseRepository,
         LessonRepository lessonRepository,
         UserRepository userRepository,
+        PaymentRepository paymentRepository,
         EnrollmentAccessPolicy enrollmentAccessPolicy
     ) {
         this.enrollmentRepository = enrollmentRepository;
@@ -48,6 +52,7 @@ public class EnrollmentService {
         this.courseRepository = courseRepository;
         this.lessonRepository = lessonRepository;
         this.userRepository = userRepository;
+        this.paymentRepository = paymentRepository;
         this.enrollmentAccessPolicy = enrollmentAccessPolicy;
     }
 
@@ -58,6 +63,7 @@ public class EnrollmentService {
         return enrollmentRepository.findByUserIdAndCourseId(user.getId(), courseId)
             .map(this::toResponse)
             .orElseGet(() -> {
+                requirePaidIfNotFree(user.getId(), course);
                 Enrollment enrollment = new Enrollment();
                 enrollment.setUser(user);
                 enrollment.setCourse(course);
@@ -65,6 +71,22 @@ public class EnrollmentService {
                 enrollment.setEnrolledAt(LocalDateTime.now());
                 return toResponse(enrollmentRepository.save(enrollment));
             });
+    }
+
+    /**
+     * Free self-enrollment stops at the paywall. A paid course is unlocked by the payment webhook,
+     * which creates the enrollment itself, so reaching here without a PAID payment means the caller
+     * skipped checkout.
+     */
+    private void requirePaidIfNotFree(Long userId, Course course) {
+        if (course.getPrice() == null || course.getPrice().signum() <= 0) {
+            return;
+        }
+        boolean paid = paymentRepository
+            .existsByUserIdAndCourseIdAndStatus(userId, course.getId(), PaymentStatus.PAID);
+        if (!paid) {
+            throw new IllegalArgumentException("Course requires payment: " + course.getId());
+        }
     }
 
     @Transactional(readOnly = true)

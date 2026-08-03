@@ -1,18 +1,24 @@
 package com.example.learning_backend.analytics.service;
 
 import com.example.learning_backend.analytics.dto.AssessmentReportResponse;
+import com.example.learning_backend.analytics.dto.CourseRevenueResponse;
 import com.example.learning_backend.analytics.dto.GlobalLeaderboardEntryResponse;
 import com.example.learning_backend.analytics.dto.LeaderboardEntryResponse;
 import com.example.learning_backend.analytics.dto.QuestionAnalysisResponse;
 import com.example.learning_backend.analytics.dto.QuestionStatRow;
+import com.example.learning_backend.analytics.dto.RevenueReportResponse;
 import com.example.learning_backend.analytics.dto.ScoreDistributionResponse;
 import com.example.learning_backend.assessment.entity.Assessment;
 import com.example.learning_backend.assessment.entity.AssessmentQuestionSelection;
 import com.example.learning_backend.assessment.entity.Question;
 import com.example.learning_backend.assessment.repository.AssessmentQuestionSelectionRepository;
 import com.example.learning_backend.assessment.repository.AssessmentRepository;
+import com.example.learning_backend.course.entity.Course;
 import com.example.learning_backend.course.service.CourseAccessPolicy;
 import com.example.learning_backend.enrollment.service.EnrollmentAccessPolicy;
+import com.example.learning_backend.payment.entity.Payment;
+import com.example.learning_backend.payment.enums.PaymentStatus;
+import com.example.learning_backend.payment.repository.PaymentRepository;
 import com.example.learning_backend.submission.entity.AssessmentAttempt;
 import com.example.learning_backend.submission.enums.AttemptStatus;
 import com.example.learning_backend.submission.repository.AnswerRepository;
@@ -53,6 +59,7 @@ public class AnalyticsService {
     private final AssessmentRepository assessmentRepository;
     private final AssessmentQuestionSelectionRepository selectionRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
     private final CourseAccessPolicy courseAccessPolicy;
     private final EnrollmentAccessPolicy enrollmentAccessPolicy;
 
@@ -62,6 +69,7 @@ public class AnalyticsService {
         AssessmentRepository assessmentRepository,
         AssessmentQuestionSelectionRepository selectionRepository,
         UserRepository userRepository,
+        PaymentRepository paymentRepository,
         CourseAccessPolicy courseAccessPolicy,
         EnrollmentAccessPolicy enrollmentAccessPolicy
     ) {
@@ -70,6 +78,7 @@ public class AnalyticsService {
         this.assessmentRepository = assessmentRepository;
         this.selectionRepository = selectionRepository;
         this.userRepository = userRepository;
+        this.paymentRepository = paymentRepository;
         this.courseAccessPolicy = courseAccessPolicy;
         this.enrollmentAccessPolicy = enrollmentAccessPolicy;
     }
@@ -180,10 +189,62 @@ public class AnalyticsService {
         );
     }
 
+    /**
+     * System-wide revenue over a date window, admin only. Reads PAID payments rather than course
+     * prices so a later price change cannot rewrite past takings.
+     */
+    public RevenueReportResponse revenueReport(LocalDateTime from, LocalDateTime to) {
+        LocalDateTime start = from == null ? LocalDateTime.of(1970, 1, 1, 0, 0) : from;
+        LocalDateTime end = to == null ? LocalDateTime.now() : to;
+        if (end.isBefore(start)) {
+            throw new IllegalArgumentException("Report end must not be before its start");
+        }
+
+        List<Payment> paid = paymentRepository.findByStatusAndPaidAtBetween(PaymentStatus.PAID, start, end);
+        BigDecimal total = paid.stream()
+            .map(Payment::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<Long, CourseTakings> byCourse = new LinkedHashMap<>();
+        for (Payment payment : paid) {
+            byCourse
+                .computeIfAbsent(payment.getCourse().getId(), key -> new CourseTakings(payment.getCourse()))
+                .add(payment.getAmount());
+        }
+
+        List<CourseRevenueResponse> courses = byCourse.values().stream()
+            .map(takings -> new CourseRevenueResponse(
+                takings.course.getId(),
+                takings.course.getTitle(),
+                takings.orders,
+                takings.revenue.setScale(2, RoundingMode.HALF_UP),
+                share(takings.revenue, total)
+            ))
+            .sorted(Comparator.comparing(CourseRevenueResponse::revenue).reversed())
+            .toList();
+
+        return new RevenueReportResponse(
+            start,
+            end,
+            total.setScale(2, RoundingMode.HALF_UP),
+            paid.size(),
+            paid.isEmpty()
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : total.divide(BigDecimal.valueOf(paid.size()), 2, RoundingMode.HALF_UP),
+            courses
+        );
+    }
+
+    private BigDecimal share(BigDecimal part, BigDecimal total) {
+        if (total.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return part.multiply(HUNDRED).divide(total, 2, RoundingMode.HALF_UP);
+    }
+
     private List<AssessmentAttempt> gradedAttempts(Long assessmentId) {
         return attemptRepository.findByAssessmentIdAndStatus(assessmentId, AttemptStatus.GRADED);
     }
-
     /**
      * Keeps each student's most recent attempt. Attempt numbers are unique per (assessment, user)
      * via {@code uk_attempts_assessment_user_no}, so the highest one is unambiguously the latest.
@@ -367,6 +428,22 @@ public class AnalyticsService {
             maxScore = maxScore.add(attemptMaxScore);
             durationSeconds += seconds == Long.MAX_VALUE ? 0L : seconds;
             assessmentCount++;
+        }
+    }
+
+    private static final class CourseTakings {
+
+        private final Course course;
+        private BigDecimal revenue = BigDecimal.ZERO;
+        private long orders;
+
+        private CourseTakings(Course course) {
+            this.course = course;
+        }
+
+        private void add(BigDecimal amount) {
+            revenue = revenue.add(amount);
+            orders++;
         }
     }
 }

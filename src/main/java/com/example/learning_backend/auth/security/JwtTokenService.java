@@ -10,6 +10,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
@@ -88,6 +89,10 @@ public class JwtTokenService {
         Instant now = Instant.now();
         return Jwts.builder()
                 .issuer(issuer)
+                // JWT timestamps only carry second precision, so two tokens minted for the same user
+                // within one second would otherwise be byte-identical — and their SHA-256 hashes
+                // would collide on the unique refresh_tokens.token_hash index.
+                .id(UUID.randomUUID().toString())
                 .subject(email)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(ttl)))

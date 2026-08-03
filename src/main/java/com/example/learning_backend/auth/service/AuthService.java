@@ -9,6 +9,7 @@ import com.example.learning_backend.auth.dto.LogoutRequest;
 import com.example.learning_backend.auth.dto.RefreshTokenRequest;
 import com.example.learning_backend.auth.dto.RegisterRequest;
 import com.example.learning_backend.auth.dto.ResetPasswordRequest;
+import com.example.learning_backend.auth.dto.RoleChangeRequest;
 import com.example.learning_backend.auth.dto.UserResponse;
 import com.example.learning_backend.auth.entity.PasswordResetToken;
 import com.example.learning_backend.auth.entity.RefreshToken;
@@ -17,6 +18,7 @@ import com.example.learning_backend.auth.repository.RefreshTokenRepository;
 import com.example.learning_backend.auth.security.JwtTokenService;
 import com.example.learning_backend.user.entity.Role;
 import com.example.learning_backend.user.entity.User;
+import com.example.learning_backend.user.enums.AssignableRole;
 import com.example.learning_backend.user.enums.UserStatus;
 import com.example.learning_backend.user.repository.RoleRepository;
 import com.example.learning_backend.user.repository.UserRepository;
@@ -39,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthService {
 
-    private static final String DEFAULT_ROLE = "STUDENT";
+    private static final AssignableRole DEFAULT_ROLE = AssignableRole.STUDENT;
     private static final int RESET_TOKEN_BYTES = 32;
     private static final long RESET_TOKEN_TTL_MINUTES = 30;
 
@@ -76,15 +78,15 @@ public class AuthService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        Role studentRole = roleRepository.findByCode(DEFAULT_ROLE)
-            .orElseThrow(() -> new IllegalStateException("Default role STUDENT not found"));
+        AssignableRole requested = request.role() == null ? DEFAULT_ROLE : request.role();
+        Role role = requireRole(requested.name());
 
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
         user.setStatus(UserStatus.ACTIVE);
-        user.getRoles().add(studentRole);
+        user.getRoles().add(role);
 
         return issueTokenPair(userRepository.save(user));
     }
@@ -161,6 +163,35 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
     }
 
+    /**
+     * Switches the caller between student and instructor. Returns a fresh token pair because the
+     * old access token still carries the previous {@code roles} claim — authorization itself reads
+     * the database on every request, so the change is already in force, but a client reading the
+     * claim to pick what to render would otherwise show the old role until expiry.
+     *
+     * <p>An {@code ADMIN} keeps that role: {@link AssignableRole} cannot express it, so a request
+     * here must never be able to strip it and lock the system out of its own admin endpoints.
+     */
+    public AuthResponse changeRole(String email, RoleChangeRequest request) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new BadCredentialsException("Invalid user"));
+        assertActive(user);
+
+        Role target = requireRole(request.role().name());
+        user.getRoles().removeIf(role -> isAssignable(role.getCode()));
+        user.getRoles().add(target);
+        return issueTokenPair(user);
+    }
+
+    private boolean isAssignable(String code) {
+        for (AssignableRole role : AssignableRole.values()) {
+            if (role.name().equals(code)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private AuthResponse issueTokenPair(User user) {
         Set<String> roles = roleCodes(user);
         String accessToken = jwtTokenService.generateAccessToken(user.getId(), user.getEmail(), roles);
@@ -190,6 +221,11 @@ public class AuthService {
             user.getStatus().name(),
             roleCodes(user)
         );
+    }
+
+    private Role requireRole(String code) {
+        return roleRepository.findByCode(code)
+            .orElseThrow(() -> new IllegalStateException("Role not found: " + code));
     }
 
     private Set<String> roleCodes(User user) {

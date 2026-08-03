@@ -54,7 +54,7 @@ o	Thống kê phổ điểm của đề thi (Phân bố điểm giỏi, khá, tr
 o	Phân tích câu hỏi: Chỉ ra câu hỏi nào có tỷ lệ làm sai cao nhất (để điều chỉnh độ khó hoặc giảng lại bài).
 6. Khối Nghiệp vụ Mở rộng (Nâng tầm dự án - Tùy chọn)
 Nếu muốn dự án thực sự mượt mà và có điểm nhấn kỹ thuật:
-•	Thanh toán trực tuyến (Nối cổng thanh toán): Cho phép mua khóa học qua VNPAY / Momo (Dùng Webhook/IPN để cập nhật trạng thái đơn hàng).
+•	Thanh toán trực tuyến (Nối cổng thanh toán PayOS): Cho phép mua khóa học qua PayOS (Tạo link thanh toán, nhận Webhook / Return URL để tự động kích hoạt ghi danh khóa học).
 •	Diễn đàn Hỏi - Đáp (Q&A Forum / Comments): Học viên có thể bình luận hỏi đáp dưới mỗi video bài học.
 •	Thông báo (Notifications): Gửi Email / Thông báo trên trang khi có bài tập mới, có kết quả chấm điểm hoặc sắp hết hạn nộp bài.
 💡 Lời khuyên thiết kế cho Intern/Fresher:
